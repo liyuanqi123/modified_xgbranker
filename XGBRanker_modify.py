@@ -218,8 +218,8 @@ if __name__ == '__main__':
     # Although rank:ndcg is also available,  rank:ndcg(listwise) is much worse than pairwise.
     # So ojective is always rank:pairwise whatever you write. 
     ranker = XGBRanker(n_estimators=150, learning_rate=0.1, subsample=0.9)
-    ranker.fit(X, y, eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rate = lrlist)
+    ranker.fit(X, y, eval_set=[X,y], eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rate = lrlist)
     y_predict = ranker.predict(X)
-    Y['y_pred'] = -y_predict
+    Y['y_pred'] = y_predict
     print("predict:"+str(y_predict))
     print("type(y_predict):"+str(type(y_predict)))
