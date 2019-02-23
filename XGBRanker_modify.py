@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
     用于做lambdamart
+    #修正predict预测乱序
+    #添加earlystopping, decay learningrate选项
 """
 
 import numpy as np
