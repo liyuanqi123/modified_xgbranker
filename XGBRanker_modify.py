@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
     用于做lambdamart
-    #修正predict预测乱序
-    #添加earlystopping, decay learningrate选项
 """
 
 import numpy as np
@@ -68,7 +66,7 @@ class XGBRanker(XGBModel):
 
 
     def fit(self, X, y, sample_weight=None, eval_set=None, eval_metric=None,
-            early_stopping_rounds=None, verbose=True, xgb_model=None, callbacks=None, learning_rate=None):
+            early_stopping_rounds=None, verbose=True, xgb_model=None, callbacks=None, learning_rates=None):
         """
         Fit the gradient boosting model
         Parameters
@@ -146,11 +144,31 @@ class XGBRanker(XGBModel):
 
         train_dmatrix.set_group(sizes)
 
-        self._Booster = train(params, train_dmatrix, 
-                              self.n_estimators,
+        def _dmat_init(group, **params):
+            ret = DMatrix(**params)
+            ret.set_group(group)
+            return ret
+
+        eval_group = []
+        for i in range(len(eval_set)):
+            seval_group, _, X_features, y, _, _ = self._preprare_data_in_groups(eval_set[i][0], eval_set[i][1])
+            eval_group.append(seval_group)
+        if eval_set is not None:
+            sample_weight_eval_set = [None] * len(eval_set)
+            evals = [_dmat_init(eval_group[i], data=eval_set[i][0], label=eval_set[i][1],
+                                missing=self.missing, weight=sample_weight_eval_set[i],
+                                nthread=self.n_jobs) for i in range(len(eval_set))]
+            nevals = len(evals)
+            eval_names = ["eval_{}".format(i) for i in range(nevals)]
+            evals = list(zip(evals, eval_names))
+        else:
+            evals = ()
+
+        self._Booster = train(params, train_dmatrix,
+                              self.n_estimators,evals=evals,
                               early_stopping_rounds=early_stopping_rounds,
                               evals_result=evals_result, obj=obj, feval=feval,
-                              verbose_eval=verbose, xgb_model=xgb_model, learning_rate=learning_rate,
+                              verbose_eval=verbose, xgb_model=xgb_model, learning_rates=learning_rates,
                               callbacks=callbacks)
 
         if evals_result:
@@ -218,7 +236,7 @@ if __name__ == '__main__':
     # Although rank:ndcg is also available,  rank:ndcg(listwise) is much worse than pairwise.
     # So ojective is always rank:pairwise whatever you write. 
     ranker = XGBRanker(n_estimators=150, learning_rate=0.1, subsample=0.9)
-    ranker.fit(X, y, eval_set=[X,y], eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rate = lrlist)
+    ranker.fit(X, y, eval_set=[(X,y)], eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rate = lrlist)
     y_predict = ranker.predict(X)
     Y['y_pred'] = y_predict
     print("predict:"+str(y_predict))
