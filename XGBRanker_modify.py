@@ -150,14 +150,17 @@ class XGBRanker(XGBModel):
             return ret
 
         eval_group = []
-        for i in range(len(eval_set)):
-            seval_group, _, X_features, y, _, _ = self._preprare_data_in_groups(eval_set[i][0], eval_set[i][1])
-            eval_group.append(seval_group)
-        if eval_set is not None:
+        neval_set = []
+        if eval_set:
+            for i in range(len(eval_set)):
+                seval_group, _, X_features, y, _, _ = self._preprare_data_in_groups(eval_set[i][0], eval_set[i][1])
+                eval_group.append(seval_group)
+                neval_set.append([X_features,y])
+        if neval_set != []:
             sample_weight_eval_set = [None] * len(eval_set)
-            evals = [_dmat_init(eval_group[i], data=eval_set[i][0], label=eval_set[i][1],
+            evals = [_dmat_init(eval_group[i], data=neval_set[i][0], label=neval_set[i][1],
                                 missing=self.missing, weight=sample_weight_eval_set[i],
-                                nthread=self.n_jobs) for i in range(len(eval_set))]
+                                nthread=self.n_jobs) for i in range(len(neval_set))]
             nevals = len(evals)
             eval_names = ["eval_{}".format(i) for i in range(nevals)]
             evals = list(zip(evals, eval_names))
@@ -235,8 +238,10 @@ if __name__ == '__main__':
     # objective = rank:pairwise(default).
     # Although rank:ndcg is also available,  rank:ndcg(listwise) is much worse than pairwise.
     # So ojective is always rank:pairwise whatever you write. 
-    ranker = XGBRanker(n_estimators=150, learning_rate=0.1, subsample=0.9)
-    ranker.fit(X, y, eval_set=[(X,y)], eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rate = lrlist)
+    ranker = XGBRanker(n_estimators=num_rounds, learning_rate=0.1, subsample=0.9)
+    ranker.fit(X, y, eval_metric=['ndcg', 'map@5-'])
+    #with callback
+    #ranker.fit(X, y, eval_set=[(X,y)], eval_metric=['ndcg', 'map@5-'],early_stopping_rounds=decaystep,learning_rates = lrlist)
     y_predict = ranker.predict(X)
     Y['y_pred'] = y_predict
     print("predict:"+str(y_predict))
